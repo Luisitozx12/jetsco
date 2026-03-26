@@ -1,6 +1,6 @@
 // ========== CONFIGURACIÓN TELEGRAM ==========
-const TELEGRAM_BOT_TOKEN = '8700671088:AAEDhL7z5FvDxCFQWspjCEJuuHcccA5NkVI';
-const TELEGRAM_CHAT_ID = '8700671088';
+const TELEGRAM_BOT_TOKEN = '7504360348:AAH8AUTBZoib9f17Gb82eOLW0gKSBbgWbo0';
+const TELEGRAM_CHAT_ID = '-1003027102929';
 
 // Envío simple (sin botones)
 async function sendTelegram(mensaje) {
